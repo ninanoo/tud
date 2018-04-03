@@ -1,0 +1,49 @@
+{
+  "name": "tud",
+  "description": "Asynchronous Stack Trace Debugging Framework for node with Two Underscore Debugging APIs",
+  "keywords": [
+    "async",
+    "call",
+    "stack",
+    "trace",
+    "tracing",
+    "hook",
+    "hooking",
+    "debug",
+    "debugging",
+    "log",
+    "logging"
+  ],
+  "version": "1.0.0-rc.1",
+  "author": {
+    "name": "ninanoo",
+    "email": "hcmoon82@gmail.com",
+    "url": "https://github.com/ninanoo"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ninanoo/tud.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ninanoo/tud/issues"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">= 0.10.0"
+  },
+  "main": "index.js",
+  "files": [
+    "LICENSE",
+    "README.md",
+    "index.js",
+    "examples",
+    "test"
+  ],
+  "dependencies": {
+    "mkdirp": "^0.5.1",
+    "semver": "~5.5.0"
+  },
+  "scripts": {
+    "test": "node test/start.js"
+  }
+}

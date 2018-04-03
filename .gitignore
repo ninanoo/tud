@@ -1,0 +1,14 @@
+.git
+.idea
+
+.node_repl_history
+.npm
+.npmrc
+npm-debug.log
+
+/node
+/node_lib
+/node_modules
+
+/examples/log
+/test/log
