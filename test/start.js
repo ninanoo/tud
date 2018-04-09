@@ -86,7 +86,7 @@ tudConfig.showProcessEventLog = true;
 
 
 
-var tud = require('../index.js').init(tudConfig);
+var tud = require('../index.js')(tudConfig);
 
 
 

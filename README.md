@@ -1,7 +1,7 @@
 ## tud ( Two Underscore Debugger )<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is Asynchronous Stack Trace Framework to debug [Node.js](http://nodejs.org) applications
 
 ```js
-01: var tud = require('tud').init();
+01: var tud = require('tud')();
 02: 
 03: setTimeout(
 04:     function helloWorld(){ console.log('Hello World') }, 3000
@@ -24,8 +24,7 @@ $ npm install tud
 
 # Features
 
-It does not require modification of user code for the use of tud.
-Just by including tud, you can track the flow of the application currently operating.
+You do not need to modify your code to use tud. Just by including tud, you can view the fully traced asynchronous function call stacks and track the flow of the application currently operating.
 
 > * **trace of asynchronous function call stacks**
 > * **trace of node system objects derived from EventEmitter class**
@@ -34,14 +33,9 @@ Just by including tud, you can track the flow of the application currently opera
 > * **debugging APIs which has no effect on user code**
 > * **support for WebStorm run and debug console**
 
-Tud hooks the node's child_process, events, timers module and process.nextTick function at the top of user's main application code.
-For this reason, the asynchronous function calls at the node's bootstrap time are not hooked.
-Most of the asynchronous io calls mainly raised by the modules like fs and net are also not hooked.
-So, the function call stacks are not always completely traced yet.
+Tud hooks the Node.js's `child_process`, `events`, `timers` module and `process.nextTick` function at the top of user's main application code, and it uses `async_wrap` binding and `async_hooks` module for the asynchronous io calls mainly raised by the modules like `fs` and `net`.
 
-It can be used with the [bluebird](http://bluebirdjs.com/docs/getting-started.html) for Promise.
-
-Tud provides logging for stdout and stderr but it is not intended for operating mode logger.
+Tud provides logging for stdout and stderr but it is not intended for operating mode logger. And it can not be used with modules that use `Error.prepareStackTrace()` or other hooking techniques.
 
 <br/>
 
@@ -63,7 +57,7 @@ There are two types of stacks. One is the stack of asynchronous function call or
 For the support of the functionality to go directly to the source code by clicking on the stack call line in WebStorm console, there are two options: `webstormConsoleSrcPath` and `webstormConsoleLibPath`. Each changes application root path and node system modules' root path.
 
 ```js
-01: var tud = require('tud').init({
+01: var tud = require('tud')({
 02:     showProcessInitExitLog: false,
 03:     nodeStackViewLvl: 'off',
 04:     userStackViewLvl: { asyncCall: 'app', debugCall: 'sys' }
@@ -82,10 +76,10 @@ For the support of the functionality to go directly to the source code by clicki
 
 ## Asynchronous Stack Tracing
 
-Tud uses `N` `NTICK`, `T` `TIMER` and `E` `EVENT` tags as asynchronous type specifiers in stack message.
+Tud uses `A` `ASYNC`, `N` `NTICK`, `T` `TIMER` and `E` `EVENT` tags as asynchronous type specifiers in stack message.
 
 ```js
-01: var tud = require('tud').init({
+01: var tud = require('tud')({
 02:     showProcessInitExitLog: false,
 03:     showProcessEventLog: false,
 04:     nodeAsyncCallLog: true,
@@ -113,6 +107,53 @@ Tud uses `N` `NTICK`, `T` `TIMER` and `E` `EVENT` tags as asynchronous type spec
 
 ![consoleOutput](examples/asynchronousStackTracing.png?raw=true "asynchronousStackTracing")
 
+<br/>
+
+Promise stack trace is supported by `async_hooks` module in Node.js versions greater than or equal to 8.0.0. You can use the [bluebird](http://bluebirdjs.com/docs/getting-started.html) instead in versions below.
+
+```js
+01: var tud = require('tud')({
+02:     showProcessInitExitLog: false,
+03:     showProcessEventLog: false,
+04:     nodeAsyncCallLog: true,
+05:     userAsyncCallLog: true,
+06:     nodeStackViewLvl: 'off',
+07:     userStackViewLvl: 'app'
+08: });
+09: 
+10: if (process.version[1] < 8) Promise = require("bluebird");
+11: 
+12: function lookupUrl(url) {
+13:     return new Promise(
+14:         function(resolve, reject) {
+15:             require('dns').lookup(url,
+16:                 function dnsLookupCallback(error, addresses) {
+17:                     if (error) reject(error);
+18:                     else resolve(addresses);
+19:                 }
+20:             );
+21:         }
+22:     ).then(
+23:         function(addresses) {
+24:             console.log(url, addresses);
+25:         }
+26:     );
+27: }
+28: lookupUrl('example.co').catch(
+29:     function(error) {
+30:         return lookupUrl('example.com');
+31:     }
+32: ).catch(
+33:     function(error) {
+34:         console.error('There is no available url.');
+35:     }
+36: );
+```
+
+![consoleOutput](examples/promiseStackTracing6113.png?raw=true "promiseStackTracing6113")
+
+![consoleOutput](examples/promiseStackTracing8100.png?raw=true "promiseStackTracing8100")
+
 [back to top](#usage)
 
 <br/>
@@ -121,10 +162,10 @@ Tud uses `N` `NTICK`, `T` `TIMER` and `E` `EVENT` tags as asynchronous type spec
 
 Tud hooks `process.stdout.write()` and `process.stderr.write()` and all hooked data go with the tud log message. Use `process.stdout.writeNative()` or `process.stderr.writeNative()` as the original method before being hooked.
 
-There are some exceptional cases associated with stdio in node.js 0.10.x and 0.12.x versions, especially stdin. `stdioSyncMode` option changes the asynchronous socket write to the synchronous file write. Use `untouchableStdin` option when a parent process spawning a child process abruptly freezes or an abnormal case occurs by stdin.
+There are some exceptional cases associated with stdio in node.js 0.10.x and 0.12.x versions, especially stdin. `useStdioWriteSync` option changes the asynchronous socket write to the synchronous file write. Use `untouchableStdin` option when a parent process spawning a child process abruptly freezes or an abnormal case occurs by stdin.
 
 ```js
-01: var tud = require('tud').init({ showProcessInitExitLog: { init: false } });
+01: var tud = require('tud')({ showProcessInitExitLog: { init: false } });
 02: 
 03: console.log('I am a grandpa.');
 04: 
@@ -136,7 +177,7 @@ There are some exceptional cases associated with stdio in node.js 0.10.x and 0.1
 ```
 
 ```js
-01: var tud = require('tud').init({ showProcessInitExitLog: { init: false } });
+01: var tud = require('tud')({ showProcessInitExitLog: { init: false } });
 02: 
 03: console.log('I am a dad.');
 04: 
@@ -145,13 +186,13 @@ There are some exceptional cases associated with stdio in node.js 0.10.x and 0.1
 ```
 
 ```js
-01: var tud = require('tud').init({ showProcessInitExitLog: { init: false } });
+01: var tud = require('tud')({ showProcessInitExitLog: { init: false } });
 02: 
 03: console.log('I am a mom.');
 ```
 
 ```js
-01: var tud = require('tud').init({ showProcessInitExitLog: { init: false } });
+01: var tud = require('tud')({ showProcessInitExitLog: { init: false } });
 02: 
 03: if (process.connected)
 04:     process.on('message', function processOnMessageCallback(message) {
@@ -173,7 +214,7 @@ There are two types of loggers: file and pipe. The file type logger is synchrono
 ```js
 01: var pipeStream = new require('stream').PassThrough();
 02: 
-03: var tud = require('tud').init({
+03: var tud = require('tud')({
 04:     showProcessInitExitLog: false,
 05:     userAsyncCallLog:  false,
 06:     userStackViewLvl: 'off',
@@ -230,7 +271,7 @@ tud() == tud.debug() == __debug() == __d() == __()
 ```
 
 ```js
-01: var tud = require('tud').init({
+01: var tud = require('tud')({
 02:     showProcessInitExitLog: false,
 03:     userStackViewLvl: 'off'
 04: });
@@ -259,23 +300,26 @@ tud() == tud.debug() == __debug() == __d() == __()
 
 ![consoleOutput](examples/debuggingAPIs.png?raw=true "debuggingAPIs")
 
+<br/>
+
 ```js
-01: var tud = require('tud').init({
+01: var tud = require('tud')({
 02:     showProcessInitExitLog: false,
-03:     userStackViewLvl: 'app'
-04: });
-05: 
-06: __e(new Error('I am a error'), 'Here is optional debugging message.');
-07: 
-08: var url = 'http://www.example.co';
-09: 
-10: require('http').get(url, function(res) {
-11:     res.on('data', function(data) {
-12:         __m(data);
-13:     });
-14: }).on('error', function(err) {
-15:     __e(err);
-16: });
+03:     showProcessEventLog: false,
+04:     nodeAsyncCallLog: true
+05: });
+06: 
+07: var fs = require('fs');
+08: fs.readFile('notExistPath', function(err, data) {
+09:     if (err) {
+10:         __e(err, 'Here is optional debugging message.');
+11:         fs.readFile(__filename, function(err, data) {
+12:             err ? __e(err) : __('data.length', data.length);
+13:         });
+14:     } else {
+15:         __('data.length', data.length);
+16:     }
+17: });
 ```
 
 ![consoleOutput](examples/debuggingAPIsError.png?raw=true "debuggingAPIsError")
@@ -296,7 +340,7 @@ tud() == tud.debug() == __debug() == __d() == __()
 ```
 
 ```js
-01: var tud = require('tud').init({
+01: var tud = require('tud')({
 02:     showProcessInitExitLog: false,
 03:     userStackViewLvl: 'off',
 04:     showSucceededCheckLog: true
@@ -331,7 +375,7 @@ tud() == tud.debug() == __debug() == __d() == __()
 
 ```js
 {
-    stdioSyncMode : false,
+    useStdioWriteSync : false,
     
     redirectStderrToStdout : process.platform === 'win32',
     
@@ -350,12 +394,14 @@ tud() == tud.debug() == __debug() == __d() == __()
     logger : [],
     
     nodeAsyncCallLog : {
+        async : {             run: false, init: false },             // == async : false
         ntick : { add: false, run: false },                          // == ntick : false
         timer : { add: false, run: false },                          // == timer : false
         event : { add: false, run: false, init: false, emit: false } // == event : false
     }, // == nodeAsyncCallLog : false
     
     userAsyncCallLog : {
+        async : {            run: true, init: true },            // == async : true
         ntick : { add: true, run: true },                        // == ntick : true
         timer : { add: true, run: true },                        // == timer : true
         event : { add: true, run: true, init: true, emit: true } // == event : true

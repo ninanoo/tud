@@ -14,7 +14,7 @@
     "log",
     "logging"
   ],
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0-rc.2",
   "author": {
     "name": "ninanoo",
     "email": "hcmoon82@gmail.com",
@@ -35,6 +35,7 @@
   "files": [
     "LICENSE",
     "README.md",
+    "CHANGELOG.md",
     "index.js",
     "examples",
     "test"

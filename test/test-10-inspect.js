@@ -11,7 +11,7 @@ tudConfig.defaultInspectOptions = {
 };
 tudConfig.useConsoleAnsiColor = true;
 
-var tud = require('../index.js').init(tudConfig);
+var tud = require('../index.js')(tudConfig);
 
 
 

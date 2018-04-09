@@ -1,5 +1,5 @@
 var tudConfig = require('../tudConfig.js');
-var tud = require('../../index.js').init(tudConfig);
+var tud = require('../../index.js')(tudConfig);
 
 
 

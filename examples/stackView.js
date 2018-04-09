@@ -1,4 +1,4 @@
-var tud = require('../').init({
+var tud = require('../')({
     showProcessInitExitLog: false,
     nodeStackViewLvl: 'off',
     userStackViewLvl: { asyncCall: 'app', debugCall: 'sys' }

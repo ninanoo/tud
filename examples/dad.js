@@ -1,4 +1,4 @@
-var tud = require('../').init({ showProcessInitExitLog: { init: false } });
+var tud = require('../')({ showProcessInitExitLog: { init: false } });
 
 console.log('I am a dad.');
 

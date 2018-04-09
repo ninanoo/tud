@@ -5,7 +5,7 @@ var semver = require('semver');
 
 module.exports = exports = {
     
-    stdioSyncMode : false,
+    useStdioWriteSync : false,
     
     redirectStderrToStdout : process.platform === 'win32',
     
@@ -24,12 +24,14 @@ module.exports = exports = {
     logger : [],
     
     nodeAsyncCallLog : {
+        async : {             run: false, init: false },             // == async : false
         ntick : { add: false, run: false },                          // == ntick : false
         timer : { add: false, run: false },                          // == timer : false
         event : { add: false, run: false, init: false, emit: false } // == event : false
     }, // == nodeAsyncCallLog : false
     
     userAsyncCallLog : {
+        async : {            run: true, init: true },            // == async : true
         ntick : { add: true, run: true },                        // == ntick : true
         timer : { add: true, run: true },                        // == timer : true
         event : { add: true, run: true, init: true, emit: true } // == event : true

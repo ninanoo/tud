@@ -1,4 +1,4 @@
-var tud = require('../index.js').init(require('./spawnTudConfig.js'));
+var tud = require('../index.js')(require('./spawnTudConfig.js'));
 
 
 
@@ -11,7 +11,7 @@ var child_process = require('child_process');
 
 var worker, args, i
   
-  , PORT = 8080
+  , PORT = 8081
   , SERVER_LISTENING_MSG = 'serverListening'
   , CLIENT_EXIT_MSG = 'clientExit'
 ;

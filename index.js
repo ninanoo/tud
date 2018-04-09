@@ -31,6 +31,11 @@ var mkdirp = require('mkdirp');
 
 
 
+// TODO: RC3 - stack depth limit, trace depth limit, repeated async trace -> trace meta structure
+// TODO: RC3 - consider Error.prepareStackTrace
+
+
+
 // TODO: hooking of async io node modules linking to CApi @@@
 // TODO: ipc messaging trace @@@
 // TODO: web ui daemon using capi or pipe @@@
@@ -74,7 +79,8 @@ var ____dbg_inspect = require('util').inspect;
 
 function __ins(v, d) { /* v [ , d ] ::= util.inspect() */
     return ____dbg_inspect(v, {
-        showHidden     : true,
+        // showHidden     : true,
+        showHidden     : false,
         depth          : arguments.length < 2 ? 0 : d,
         colors         : true,
         customInspect  : false,
@@ -361,7 +367,7 @@ function TudMessage() {
     var _bufList = []
       , _hasLine = []
       , _corked  = 0
-      , _synced  = m__cfg.stdioSyncMode
+      , _synced  = m__cfg.useStdioWriteSync
     ;
     this.truncate = function() {
         for (var i in _bufList) _bufList[i].length = 0;
@@ -914,9 +920,10 @@ __ass(M__PATH_TYPE_SYS < M__PATH_TYPE_DBG);
 var M__STACK_TYPE_NODE  = 1
   , M__STACK_TYPE_USER  = 2
 ;
-var M__ASYNC_TYPE_NTICK = 1
-  , M__ASYNC_TYPE_TIMER = 2
-  , M__ASYNC_TYPE_EVENT = 4
+var M__ASYNC_TYPE_ASYNC = 1
+  , M__ASYNC_TYPE_NTICK = 2
+  , M__ASYNC_TYPE_TIMER = 4
+  , M__ASYNC_TYPE_EVENT = 8
 ;
 var m__current_async_traces = []; // TODO: push, pop, has, get interface ?
 
@@ -1093,13 +1100,21 @@ function m__init_stack_trace_generator() {
                         )
                     )
                 )
+            ) || (
+                stack[stack.length - 1].__data__[2] === 'ReadStream.Readable.on' && stack[stack.length - 2] && (
+                    stack[stack.length - 2].__type__ === M__PATH_TYPE_APP || (
+                        stack[stack.length - 2].__type__ === M__PATH_TYPE_EXC && stack[stack.length - 3] && (
+                            stack[stack.length - 3].__type__ === M__PATH_TYPE_APP
+                        )
+                    )
+                )
             )
         ) ? M__STACK_TYPE_USER : M__STACK_TYPE_NODE;
     }
     
     // m__get_stack_type = function(trace) { return trace && trace.type || M__STACK_TYPE_NODE }; // TODO: ?
     m__get_stack_type = function(traceWrapperOrTrace) {
-
+        
         if (traceWrapperOrTrace) {
             if ('trace' in traceWrapperOrTrace) { // traceWrapper
                 return traceWrapperOrTrace.trace && traceWrapperOrTrace.trace.type || M__STACK_TYPE_NODE
@@ -1137,6 +1152,7 @@ var m__get_stack_trace_msg = function(/* [ trace [ , stackLevel [ , tab ] ] ] */
       , STACK_TYPE_BODY
       , ASYNC_TYPE = []
     ;
+    ASYNC_TYPE[M__ASYNC_TYPE_ASYNC] = 'ASYNC :';
     ASYNC_TYPE[M__ASYNC_TYPE_NTICK] = 'NTICK :';
     ASYNC_TYPE[M__ASYNC_TYPE_TIMER] = 'TIMER :';
     ASYNC_TYPE[M__ASYNC_TYPE_EVENT] = 'EVENT :';
@@ -1217,6 +1233,7 @@ var m__get_call_trace_msg = function(/* [ trace ] */) {};
 (function(){
     var ASYNC_TYPE = [];
     
+    ASYNC_TYPE[M__ASYNC_TYPE_ASYNC] = '~A~';
     ASYNC_TYPE[M__ASYNC_TYPE_NTICK] = '~N~';
     ASYNC_TYPE[M__ASYNC_TYPE_TIMER] = '~T~';
     ASYNC_TYPE[M__ASYNC_TYPE_EVENT] = '~E~';
@@ -1390,6 +1407,9 @@ function m__init_async_hook() {
       , SHOW_EVENT_RUN  = {}
       , SHOW_EVENT_INIT = {}
       , SHOW_EVENT_EMIT = {}
+      
+      , SHOW_ASYNC_RUN  = {}
+      , SHOW_ASYNC_INIT = {}
     ;
     SHOW_NTICK_ADD [M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.ntick.add;
     SHOW_NTICK_RUN [M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.ntick.run;
@@ -1402,6 +1422,9 @@ function m__init_async_hook() {
     SHOW_EVENT_INIT[M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.event.init;
     SHOW_EVENT_EMIT[M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.event.emit;
     
+    SHOW_ASYNC_RUN [M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.async.run;
+    SHOW_ASYNC_INIT[M__STACK_TYPE_NODE] = m__cfg.nodeAsyncCallLog.async.init;
+    
     SHOW_NTICK_ADD [M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.ntick.add;
     SHOW_NTICK_RUN [M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.ntick.run;
     
@@ -1413,6 +1436,17 @@ function m__init_async_hook() {
     SHOW_EVENT_INIT[M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.event.init;
     SHOW_EVENT_EMIT[M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.event.emit;
     
+    SHOW_ASYNC_RUN [M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.async.run;
+    SHOW_ASYNC_INIT[M__STACK_TYPE_USER] = m__cfg.userAsyncCallLog.async.init;
+    
+    var _asyncHandle
+      , _asyncSeq = 0
+      , _asyncMap = []
+      , _asyncVerLt800 = semver.lt(NODE_SAMVER, semver.coerce('8.0.0'))
+      , _asyncSkipResources = [ // TODO: ?
+            'WriteWrap', 'TickObject', 'Timer', 'Timeout', 'Immediate'
+        ]
+    ;
     var _nextTick       = process.nextTick
       
       , _setImmediate   = timers.setImmediate
@@ -1440,6 +1474,8 @@ function m__init_async_hook() {
     
     
     m__attach_async_hook = function() {
+    
+        _asyncHandle && _asyncHandle.enable();
         
         process.nextTick = nextTickWrapper;
         
@@ -1458,6 +1494,8 @@ function m__init_async_hook() {
     };
     
     m__detach_async_hook = function() {
+    
+        _asyncHandle && _asyncHandle.disable();
         
         process.nextTick = _nextTick;
         
@@ -1486,7 +1524,7 @@ function m__init_async_hook() {
                 ;
             case 'object' :
                 if (v) {
-                    if (!v.constructor || v.constructor === Object) return m__inspect(v);
+                    if (!v.constructor || v.constructor === Object) return m__inspect(v, -1); // TODO: m__inspect_row ?
                     return v.tud_target_id || m__mark_instance(v).tud_target_id;
                 }
         }
@@ -1507,6 +1545,137 @@ function m__init_async_hook() {
     }
     
     
+    if (semver.gte(NODE_SAMVER, semver.coerce('0.12.0'))) {
+        
+        // if (_asyncVerLt800) __(NODE_SAMVER, process.binding('async_wrap'), null);
+        // else { __(NODE_SAMVER, process.binding('async_wrap'), null); __('async_hooks', require('async_hooks'), null); }
+        
+        _asyncHandle = _asyncVerLt800 ? process.binding('async_wrap') : require('async_hooks');
+        
+        if (semver.lt(NODE_SAMVER, semver.coerce('4.0.0'))) {
+            _asyncHandle.setupHooks(
+                (function(){
+                    var asyncSetupHooksParams = {};
+                    _asyncHandle.disable = function(){ asyncSetupHooksParams[0] = 0 };
+                    _asyncHandle.enable  = function(){ asyncSetupHooksParams[0] = 1 };
+                    return asyncSetupHooksParams;
+                })(),
+                asyncCallbackInitHook, asyncCallbackForeHook, asyncCallbackBackHook, asyncCallbackExitHook
+            );
+        } else if (semver.lt(NODE_SAMVER, semver.coerce('4.5.0')) || (
+                semver.gte(NODE_SAMVER, semver.coerce('5.0.0')) && semver.lt(NODE_SAMVER, semver.coerce('5.10.0'))
+            )) { // TODO: 5.7.0 ? 5.9.1 ?
+            _asyncHandle.disable();
+            _asyncHandle.setupHooks(
+                asyncCallbackInitHook, asyncCallbackForeHook, asyncCallbackBackHook, asyncCallbackExitHook
+            );
+        } else if (_asyncVerLt800) {
+            _asyncHandle.disable();
+            _asyncHandle.setupHooks({
+                init    : asyncCallbackInitHook,
+                pre     : asyncCallbackForeHook,
+                post    : asyncCallbackBackHook,
+                destroy : asyncCallbackExitHook
+            });
+        } else {
+            _asyncHandle = _asyncHandle.createHook({
+                init    : asyncCallbackInitHook,
+                before  : asyncCallbackForeHook,
+                after   : asyncCallbackBackHook,
+                destroy : asyncCallbackExitHook
+                // , promiseResolve : asyncCallbackPromiseResolveHook
+            });
+            _asyncHandle.disable();
+        }
+    }
+    
+    function asyncCallbackInitHook(asyncId, type, triggerAsyncId, resourceOrTriggerResource) {
+        
+        var triggerAsyncTrace, self = m__mark_instance(_asyncVerLt800 ? this : resourceOrTriggerResource);
+        
+        // if (semver.lt(NODE_SAMVER, semver.coerce('4.5.0')) || ( // TODO: ?
+        //         semver.gte(NODE_SAMVER, semver.coerce('5.0.0')) && semver.lt(NODE_SAMVER, semver.coerce('5.7.0'))
+        //     )
+        // ) asyncId = ++_asyncSeq;
+        // self.tud_async_id = asyncId;
+        self.tud_async_id = arguments.length < 2 ? (asyncId = ++_asyncSeq) : asyncId; // valid just in lower version
+        
+        if (_asyncSkipResources.indexOf(self.constructor.name) !== -1) return;
+        
+        if (triggerAsyncTrace = triggerAsyncId > 1 && _asyncMap[triggerAsyncId]) // TODO: under 4.8.7
+            m__current_async_traces.push(_asyncMap[triggerAsyncId].async);
+        
+        _asyncMap[asyncId] = { self: self
+            , async: { type: M__ASYNC_TYPE_ASYNC, trace: m__get_stack_trace(1) }
+        };
+        if (SHOW_ASYNC_INIT[m__get_stack_type(_asyncMap[asyncId].async)]
+            // && _asyncSkipResources.indexOf(self.constructor.name) === -1 // TODO: ?
+            && (self.constructor.name !== 'FSReqWrap' || self.context
+                || (self.oncomplete.name !== 'strWrapper'
+                    && self.oncomplete.name !== 'wrapper'))
+        ) {
+            // __m(_asyncMap[asyncId].self.constructor.name + ' - ' + asyncId + ' - I - ' + __ins(arguments)
+            //     , __ins(_asyncMap[asyncId].self, 1)
+            //     , 'resource: ' + inspect(resourceOrTriggerResource) + ' , this: ' + inspect(this)
+            // );
+            m__log_hook_msg('<ASYNC-INIT>', inspect(self), _asyncMap[asyncId].async.trace);
+        }
+        triggerAsyncTrace && m__current_async_traces.pop();
+    }
+    function asyncCallbackForeHook(asyncId) {
+        if (!asyncId) asyncId = this.tud_async_id;
+        if (_asyncMap[asyncId]) {
+            m__current_async_traces.push(_asyncMap[asyncId].async);
+            
+            if (SHOW_ASYNC_RUN[m__get_stack_type(_asyncMap[asyncId].async)]
+                // && _asyncSkipResources.indexOf(_asyncMap[asyncId].self.constructor.name) === -1 // TODO: ?
+                && (_asyncMap[asyncId].self.constructor.name !== 'FSReqWrap' || _asyncMap[asyncId].self.context
+                    || (_asyncMap[asyncId].self.oncomplete.name !== 'strWrapper'
+                        && _asyncMap[asyncId].self.oncomplete.name !== 'wrapper'))
+            ) {
+                // __m(_asyncMap[asyncId].self.constructor.name + ' - ' + asyncId + ' - S - ' + __ins(arguments)
+                //     , __ins(_asyncMap[asyncId].self, 1)
+                // );
+                m__log_hook_msg('<ASYNC-RUN>', inspect(_asyncMap[asyncId].self), _asyncMap[asyncId].async.trace);
+            }
+        }
+    }
+    function asyncCallbackBackHook(asyncId) {
+        if (!asyncId) asyncId = this.tud_async_id;
+        if (_asyncMap[asyncId]) {
+            // if (1
+            //     && (_asyncMap[asyncId].self.constructor.name !== 'FSReqWrap' || _asyncMap[asyncId].self.context
+            //         || (_asyncMap[asyncId].self.oncomplete.name !== 'strWrapper'
+            //             && _asyncMap[asyncId].self.oncomplete.name !== 'wrapper'))
+            // ) {
+            //     // __m(_asyncMap[asyncId].self.constructor.name + ' - ' + asyncId + ' - E - ' + __ins(arguments)
+            //     //     , __ins(_asyncMap[asyncId].self, 1)
+            //     // );
+            //     m__log_hook_msg('<ASYNC-END>', inspect(_asyncMap[asyncId].self), _asyncMap[asyncId].async.trace);
+            // }
+            m__current_async_traces.pop();
+        }
+    }
+    function asyncCallbackExitHook(asyncId) { // this === global ?
+        if (!asyncId) asyncId = this.tud_async_id;
+        if (_asyncMap[asyncId]) {
+            // __m(_asyncMap[asyncId].self.constructor.name + ' - ' + asyncId + ' - X - ' + __ins(arguments)
+            //     // , __ins(_asyncMap[asyncId].self, 1)
+            // );
+            _asyncMap[asyncId] = undefined;
+        }
+    }
+    function asyncCallbackPromiseResolveHook(asyncId) {
+        if (!asyncId) asyncId = this.tud_async_id;
+        if (_asyncMap[asyncId]) {
+            // __m(_asyncMap[asyncId].self.constructor.name + ' - ' + asyncId + ' - P - ' + __ins(arguments)
+            //     // , __ins(_asyncMap[asyncId].self, 1)
+            // );
+        }
+    }
+    
+    
+    // TODO:            dummy callback - node-v8.0.0  on or once callback - 'function noop() {}'
     // TODO: repetitive dummy callback - node-v6.11.3 afterWrite - 'nop' function of arguments[4]
     // TODO: repetitive dummy callback - node-v0.10.0 afterWrite - _stream_writable.js:249
     // 'function () {\n        afterWrite(stream, state, finished, cb);\n      }'
@@ -1519,9 +1688,11 @@ function m__init_async_hook() {
             m__current_async_traces.push(nextTickCallbackWrapper.tud_async);
             
             if (SHOW_NTICK_RUN[m__get_stack_type(nextTickCallbackWrapper.tud_async)]
+                && callback.listener.name !== 'afterWrite'
+                && callback.listener.name !== 'maybeReadMore_'
                 && (callback.listener + '') !== 'function () {\n        afterWrite(stream, state, finished, cb);\n      }'
-                // && (callback.listener + '') !== 'function () {\n        callback(undefined, 0);\n      }'
-                // && (callback.listener + '') !== 'function () {\n      maybeReadMore_(stream, state);\n    }'
+                && (callback.listener + '') !== 'function () {\n      maybeReadMore_(stream, state);\n    }'
+                && (callback.listener + '') !== 'function () {\n        callback(undefined, 0);\n      }'
             ) {
                 // __(m__inspect(callback.listener + ''));
                 
@@ -1532,7 +1703,7 @@ function m__init_async_hook() {
             
             m__current_async_traces.pop();
         }
-        // __(m__inspect(callback + ''));
+        // __(m__inspect(callback+''));
         
         if (typeof callback === 'function'
             && (typeof arguments[4] !== 'function' || arguments[4].name !== 'nop')
@@ -1545,9 +1716,11 @@ function m__init_async_hook() {
             nextTickCallbackWrapper.tud_async = { type: M__ASYNC_TYPE_NTICK, trace: m__get_stack_trace(1) };
             
             if (SHOW_NTICK_ADD[m__get_stack_type(nextTickCallbackWrapper.tud_async)]
+                && callback.name !== 'afterWrite'
+                && callback.name !== 'maybeReadMore_'
                 && (callback + '') !== 'function () {\n        afterWrite(stream, state, finished, cb);\n      }'
-                // && (callback + '') !== 'function () {\n        callback(undefined, 0);\n      }'
-                // && (callback + '') !== 'function () {\n      maybeReadMore_(stream, state);\n    }'
+                && (callback + '') !== 'function () {\n      maybeReadMore_(stream, state);\n    }'
+                && (callback + '') !== 'function () {\n        callback(undefined, 0);\n      }'
             ) {
                 // __(m__inspect(callback + ''));
                 
@@ -1631,8 +1804,12 @@ function m__init_async_hook() {
         
         if (!this.tud_target_id) m__hook_event_object(this);
         
-        if (typeof callback === 'function') {
-            
+        // __m(m__inspect(callback+''), m__inspect(callback.listener+''));
+        
+        if (typeof callback === 'function'
+            && callback + '' !== 'function noop() {}' // TODO: ?
+            && (!callback.listener || callback.listener + '' !== 'function noop() {}') // TODO: ?
+        ) {
             if (callback.name === _onceWrapperName) { // TODO: if (callback.listener) ?
                 onceCallbackWrapper.listener = m__mark_function(callback.listener);
                 callback = onceCallbackWrapper;
@@ -1792,7 +1969,8 @@ function tud__injectTest(f, justRun, useCallerScope) { /* f [ , justRun [ , useC
 
 function tud__debug(title, value, depth) { /* [ title [ , value [ , depth ] ] ] */
     
-    if (!m__initiated) throw new Error('tud was not initiated. run "tud.init()"'); // TODO: -> switching
+    // if (!m__initiated) throw new Error('tud was not initiated. run "tud.init()"'); // TODO: -> switching
+    if (!m__initiated) return tud__init.call(tud__debug, title);
     
     var trace = m__get_stack_trace(1);
     switch (arguments.length) {
@@ -2173,7 +2351,7 @@ var m__show_process_init_log = function(          ){}
 
 var m__cfg = {
     
-    stdioSyncMode : false,
+    useStdioWriteSync : false,
     
     redirectStderrToStdout : process.platform === 'win32',
     untouchableStdin : // use 'ignore' or 'pipe' for childProcess.stdin
@@ -2182,7 +2360,7 @@ var m__cfg = {
     // logger [
     //     {      type : 'file' | <default> 'pipe'
     //          , data : 'out'  | 'err' | <default> 'all'
-    //          , path : {string} filePath | {number} fileDescriptor | {stream.Writable} writableStream
+    //          , dest : {string} filePath | {number} fileDescriptor | {stream.Writable} writableStream
     //     },,,
     // ]
     logger : [],
@@ -2193,6 +2371,7 @@ var m__cfg = {
         // timer : { add: false, run: false, del: false },
         // event : { add: false, run: false, del: false, init: false, emit: false }
         
+        async : {             run: false, init: false },
         ntick : { add: false, run: false },
         timer : { add: false, run: false },
         event : { add: false, run: false, init: false, emit: false }
@@ -2202,6 +2381,7 @@ var m__cfg = {
         // timer : { add: true, run: true, del: false },
         // event : { add: true, run: true, del: false, init: true, emit: true }
         
+        async : {            run: true, init: true },
         ntick : { add: true, run: true },
         timer : { add: true, run: true },
         event : { add: true, run: true, init: true, emit: true }
@@ -2216,8 +2396,9 @@ var m__cfg = {
         debugCall : M__TRACE_LEVEL[M__TRACE_LEVEL.APP]
     },
     
+    // TODO: only sys level ? path resolve ?
     // excludedModulesInStack : [],
-    excludedModulesInStack : [ 'events.js', 'console.js' ], // TODO: only sys level ? path resolve ?
+    excludedModulesInStack : [ 'events.js', 'console.js', 'async_hooks.js', 'internal/async_hooks.js' ],
     // excludedModulesInStack : [
     //     'events.js', 'console.js', 'internal/process/next_tick.js',
     //     'bootstrap_node.js', 'node.js', 'module.js', 'internal/module.js' ],
@@ -2282,14 +2463,15 @@ function m__hide_all_async_log(asyncLog) {
 
 var m__initiated = false;
 
-(module.exports = exports = tud__debug).init = function tud__init(cfg) { /* [ cfg ] ::= module.exports */
+// (module.exports = exports = tud__debug).init = function tud__init(cfg) { /* [ cfg ] ::= module.exports */
+module.exports = exports = tud__debug;
+function tud__init(cfg) { /* [ cfg ] ::= module.exports */
     
-    // delete exports.init; // TODO: ?
+    // delete exports.init;
     if (m__initiated) return this;
     
     (function(){
         var k, kSub, tmp, i, j;
-        
         for (k in cfg) {
             switch (k) {
                 
@@ -2404,7 +2586,7 @@ var m__initiated = false;
         }
         // __d('m__cfg', m__cfg, null);
     })();
-    __s = m__cfg.stdioSyncMode; // TODO: debug code
+    __s = m__cfg.useStdioWriteSync; // TODO: debug code
     
     m__mark_instance(process, 'process');
     m__cfg.untouchableStdin || m__mark_instance(process.stdin , 'process.stdin' );

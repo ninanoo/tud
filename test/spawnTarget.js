@@ -1,4 +1,4 @@
-var tud = require('../index.js').init(require('./spawnTudConfig.js'));
+var tud = require('../index.js')(require('./spawnTudConfig.js'));
 
 
 

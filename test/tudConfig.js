@@ -5,7 +5,7 @@ var dest = require('./loggerPathPrefix.js');
 
 module.exports = exports = {
     
-    stdioSyncMode : true,
+    useStdioWriteSync : false,
     
     // redirectStderrToStdout : false,
     // untouchableStdin : false,
@@ -28,7 +28,7 @@ module.exports = exports = {
     //     timer : { add: false, run: false },
     //     event : { add: false, run: false, init: false, emit: false }
     // },
-    // nodeAsyncCallLog : true,
+    nodeAsyncCallLog : true,
     
     // userAsyncCallLog : {
     //     // ntick : { add: false, run: false },
@@ -44,13 +44,13 @@ module.exports = exports = {
     nodeStackViewLvl : 'off',
     // nodeStackViewLvl : 'app',
     // nodeStackViewLvl : 'all',
-    userStackViewLvl : 'off',
-    // userStackViewLvl : 'app',
+    // userStackViewLvl : 'off',
+    userStackViewLvl : 'app',
     // userStackViewLvl : 'all',
     // userStackViewLvl : { asyncCall: 'all', debugCall: 'app' },
     
     
-    webstormConsoleSrcPath : 'D:\\workspace\\ws\\tud',
+    // webstormConsoleSrcPath : 'D:\\workspace\\ws\\tud',
     // webstormConsoleSrcPath : '.',
     
     webstormConsoleLibPath : 'D:\\tools\\nodejs\\lib',

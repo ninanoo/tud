@@ -10,7 +10,7 @@ tudConfig.userAsyncCallLog = true;
 // tudConfig.userStackViewLvl = 'app';
 // tudConfig.userStackViewLvl = 'sys';
 
-var tud = require('../index.js').init(tudConfig);
+var tud = require('../index.js')(tudConfig);
 
 
 

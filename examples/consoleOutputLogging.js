@@ -1,6 +1,6 @@
 var pipeStream = new require('stream').PassThrough();
 
-var tud = require('../').init({
+var tud = require('../')({
     showProcessInitExitLog: false,
     userAsyncCallLog:  false,
     userStackViewLvl: 'off',

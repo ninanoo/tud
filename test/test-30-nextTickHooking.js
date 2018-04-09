@@ -15,10 +15,10 @@ tudConfig.nodeAsyncCallLog = true;
 // };
 tudConfig.userAsyncCallLog = true;
 
-tudConfig.nodeStackViewLvl = 'off';
+// tudConfig.nodeStackViewLvl = 'off';
 // tudConfig.nodeStackViewLvl = 'app';
 // tudConfig.nodeStackViewLvl = 'sys';
-tudConfig.userStackViewLvl = 'off';
+// tudConfig.userStackViewLvl = 'off';
 // tudConfig.userStackViewLvl = 'app';
 // tudConfig.userStackViewLvl = 'sys';
 
@@ -32,7 +32,7 @@ tudConfig.userStackViewLvl = 'off';
 //     'cluster.js', 'child_process.js', 'internal/child_process.js'
 // ];
 
-var tud = require('../index.js').init(tudConfig);
+var tud = require('../index.js')(tudConfig);
 
 
 

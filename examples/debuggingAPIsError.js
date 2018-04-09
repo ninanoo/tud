@@ -1,16 +1,17 @@
-var tud = require('../').init({
+var tud = require('../')({
     showProcessInitExitLog: false,
-    userStackViewLvl: 'app'
+    showProcessEventLog: false,
+    nodeAsyncCallLog: true
 });
 
-__e(new Error('I am a error'), 'Here is optional debugging message.');
-
-var url = 'http://www.example.co';
-
-require('http').get(url, function(res) {
-    res.on('data', function(data) {
-        __m(data);
-    });
-}).on('error', function(err) {
-    __e(err);
+var fs = require('fs');
+fs.readFile('notExistPath', function(err, data) {
+    if (err) {
+        __e(err, 'Here is optional debugging message.');
+        fs.readFile(__filename, function(err, data) {
+            err ? __e(err) : __('data.length', data.length);
+        });
+    } else {
+        __('data.length', data.length);
+    }
 });

@@ -1,4 +1,4 @@
-var tud = require('../').init({ showProcessInitExitLog: { init: false } });
+var tud = require('../')({ showProcessInitExitLog: { init: false } });
 
 if (process.connected)
     process.on('message', function processOnMessageCallback(message) {
