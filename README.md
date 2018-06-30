@@ -1,4 +1,4 @@
-###### ※ This is a tool made for my work for a while.<br/><br/>The source is not for cooperation, but rather a mixture of engine and view code.
+###### ※ This is a tool made for my work for a while.<br/><br/>The [source](https://github.com/ninanoo/tud/blob/master/index.js) is not for cooperation, but rather a mixture of engine and view code.
 
 <br/>
 
