@@ -15,11 +15,7 @@
     "logging"
   ],
   "version": "1.0.0-rc.2",
-  "author": {
-    "name": "ninanoo",
-    "email": "hcmoon82@gmail.com",
-    "url": "https://github.com/ninanoo"
-  },
+  "author": "ninanoo <hcmoon82@gmail.com> (https://github.com/ninanoo)",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/ninanoo/tud.git"
@@ -46,5 +42,11 @@
   },
   "scripts": {
     "test": "node test/start.js"
-  }
+  },
+  "homepage": "https://github.com/ninanoo/tud#readme",
+  "directories": {
+    "example": "examples",
+    "test": "test"
+  },
+  "devDependencies": {}
 }

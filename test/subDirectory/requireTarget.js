@@ -1,5 +1,6 @@
-var tudConfig = require('../tudConfig.js');
-var tud = require('../../index.js')(tudConfig);
+// var tudConfig = require('../tudConfig.js');
+// var tud = require('../../index.js')(tudConfig);
+var tud = require('../../index.js'); // TODO: removed init call bug in submodules
 
 
 
