@@ -1,3 +1,7 @@
+###### ※ This is a tool made for my work for a while.<br/><br/>So the [source](https://github.com/ninanoo/tud/blob/master/index.js) is not for cooperation, but rather a mixture of engine and view code.
+
+<br/>
+
 ## tud ( Two Underscore Debugger )<br/>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;is Asynchronous Stack Trace Framework to debug [Node.js](http://nodejs.org) applications
 
 ```js
