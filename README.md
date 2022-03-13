@@ -1,4 +1,4 @@
-###### ※ This is a tool made for my work for a while.<br/><br/>So the [source](https://github.com/ninanoo/tud/blob/master/index.js) is not for cooperation, but rather a mixture of engine and view code.
+###### ※ [This](https://github.com/ninanoo/tud/blob/master/index.js) is not a software product to be maintained and used as open source<br/><br/>&nbsp;&nbsp;&nbsp;, but rather a bunch of debugging scripts packaged into a tool for those who just need it.
 
 <br/>
 
